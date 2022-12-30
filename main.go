@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/kevinjqiu/external-dns-docker/svc"
 )
 
 func main() {
@@ -16,15 +13,17 @@ func main() {
 
 	defer cli.Close()
 
-	messageChan, errChan := cli.Events(context.Background(), types.EventsOptions{})
+	service := svc.NewExternalDNSService(cli, []svc.DNSProvider{})
+	service.Run()
+	// messageChan, errChan := cli.Events(context.Background(), types.EventsOptions{})
 
-	for {
-		select {
-		case message := <-messageChan:
-			fmt.Println(message)
+	// for {
+	// 	select {
+	// 	case message := <-messageChan:
+	// 		fmt.Println(message)
 
-		case err := <-errChan:
-			panic(err)
-		}
-	}
+	// 	case err := <-errChan:
+	// 		panic(err)
+	// 	}
+	// }
 }
