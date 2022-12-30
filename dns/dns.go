@@ -2,11 +2,10 @@ package dns
 
 import (
 	"context"
-	"github.com/kevinjqiu/external-dns-docker/endpoint"
-	"github.com/kevinjqiu/external-dns-docker/plan"
 )
 
 type Provider interface {
-	Records(ctx context.Context) ([]*endpoint.Endpoint, error)
-	ApplyPlan(ctx context.Context, plan plan.Plan) error
+	Records(ctx context.Context) ([]*Record, error)
+	ApplyPlan(ctx context.Context, plan *Plan) error
+	NewRecord(ctx context.Context, baseName, recordType, value string, ttl int64) (*Record, error)
 }
