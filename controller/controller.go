@@ -1,22 +1,22 @@
-package svc
+package controller
 
 import (
 	"context"
 	"fmt"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/kevinjqiu/external-dns-docker/dns"
 )
 
-type ExternalDNSService struct {
+type Controller struct {
 	dockerClient  *client.Client
 	labelEnabled  string
 	labelHostname string
-	dnsProviders  []DNSProvider
+	dnsProviders  []dns.Provider
 }
 
-func (s *ExternalDNSService) getContainers() ([]types.Container, error) {
+func (s *Controller) getContainers() ([]types.Container, error) {
 	opts := types.ContainerListOptions{
 		All: true,
 		Filters: filters.NewArgs(
@@ -28,7 +28,7 @@ func (s *ExternalDNSService) getContainers() ([]types.Container, error) {
 	return s.dockerClient.ContainerList(context.Background(), opts)
 }
 
-func (s *ExternalDNSService) Run() {
+func (s *Controller) Run() {
 	// Upon start, gather a list of eligible containers
 	containers, err := s.getContainers()
 	if err != nil {
@@ -40,8 +40,8 @@ func (s *ExternalDNSService) Run() {
 	}
 }
 
-func NewExternalDNSService(dockerClient *client.Client, dnsProviders []DNSProvider) *ExternalDNSService {
-	return &ExternalDNSService{
+func NewController(dockerClient *client.Client, dnsProviders []dns.Provider) *Controller {
+	return &Controller{
 		dockerClient:  dockerClient,
 		dnsProviders:  dnsProviders,
 		labelEnabled:  "external-dns-docker/enabled",

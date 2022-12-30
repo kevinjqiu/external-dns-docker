@@ -2,7 +2,8 @@ package main
 
 import (
 	"github.com/docker/docker/client"
-	"github.com/kevinjqiu/external-dns-docker/svc"
+	"github.com/kevinjqiu/external-dns-docker/controller"
+	"github.com/kevinjqiu/external-dns-docker/dns"
 )
 
 func main() {
@@ -13,7 +14,7 @@ func main() {
 
 	defer cli.Close()
 
-	service := svc.NewExternalDNSService(cli, []svc.DNSProvider{})
+	service := controller.NewController(cli, []dns.Provider{})
 	service.Run()
 	// messageChan, errChan := cli.Events(context.Background(), types.EventsOptions{})
 
