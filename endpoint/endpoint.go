@@ -1,6 +1,6 @@
 package endpoint
 
-type DNSEndpoint struct {
+type Endpoint struct {
 	DNSName    string
 	Targets    string
 	RecordType string

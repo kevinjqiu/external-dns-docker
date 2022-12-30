@@ -13,7 +13,7 @@ type Controller struct {
 	dockerClient  *client.Client
 	labelEnabled  string
 	labelHostname string
-	dnsProviders  []dns.Provider
+	dnsProvider   dns.Provider
 }
 
 func (s *Controller) getContainers() ([]types.Container, error) {
@@ -28,6 +28,10 @@ func (s *Controller) getContainers() ([]types.Container, error) {
 	return s.dockerClient.ContainerList(context.Background(), opts)
 }
 
+func (s *Controller) generatePlan() {
+
+}
+
 func (s *Controller) Run() {
 	// Upon start, gather a list of eligible containers
 	containers, err := s.getContainers()
@@ -40,10 +44,10 @@ func (s *Controller) Run() {
 	}
 }
 
-func NewController(dockerClient *client.Client, dnsProviders []dns.Provider) *Controller {
+func NewController(dockerClient *client.Client, dnsProvider dns.Provider) *Controller {
 	return &Controller{
 		dockerClient:  dockerClient,
-		dnsProviders:  dnsProviders,
+		dnsProvider:   dnsProvider,
 		labelEnabled:  "external-dns-docker/enabled",
 		labelHostname: "external-dns-docker/hostname",
 	}
