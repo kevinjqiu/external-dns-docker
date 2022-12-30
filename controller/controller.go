@@ -7,7 +7,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/kevinjqiu/external-dns-docker/dns"
-	"log"
+	"github.com/sirupsen/logrus"
 )
 
 type Controller struct {
@@ -53,7 +53,7 @@ func (s *Controller) getDesiredRecords() ([]*dns.Record, error) {
 			for _, network := range container.NetworkSettings.Networks {
 				record, err := s.dnsProvider.NewRecord(context.Background(), name, "A", network.IPAddress, ttl)
 				if err != nil {
-					log.Printf("unable to create record: %v", err)
+					logrus.Warnf("unable to create record: %v", err)
 					continue
 				}
 				records = append(records, record)

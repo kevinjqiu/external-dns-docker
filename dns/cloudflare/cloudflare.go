@@ -4,6 +4,7 @@ import (
 	"context"
 	cloudflare_sdk "github.com/cloudflare/cloudflare-go"
 	"github.com/kevinjqiu/external-dns-docker/dns"
+	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
 )
@@ -20,6 +21,9 @@ func newDnsRecord(record cloudflare_sdk.DNSRecord) *dns.Record {
 		Value: record.Content,
 		Type:  record.Type,
 		TTL:   int64(record.TTL),
+		ProviderMetadata: map[string]interface{}{
+			"ID": record.ID,
+		},
 	}
 }
 
@@ -62,6 +66,7 @@ func (c *CloudflareProvider) Records(ctx context.Context) ([]*dns.Record, error)
 }
 
 func (c *CloudflareProvider) ApplyPlan(ctx context.Context, plan *dns.Plan) error {
+	logrus.Info("applying changes")
 	return nil
 }
 

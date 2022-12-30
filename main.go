@@ -4,8 +4,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kevinjqiu/external-dns-docker/controller"
 	"github.com/kevinjqiu/external-dns-docker/dns/cloudflare"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 type cmdFlags struct {
@@ -21,23 +21,25 @@ func newCommand() *cobra.Command {
 		Short: "Manage DNS records for docker containers",
 		Run: func(cmd *cobra.Command, args []string) {
 			if flags.zoneName == "" {
-				log.Fatal("--zone-name must be provided")
+				logrus.Fatal("--zone-name must be provided")
 			}
 
 			cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 			if err != nil {
-				panic(err)
+				logrus.Fatal("cannot create docker client: %v", err)
 			}
 
 			defer cli.Close()
 
 			cfProvider, err := cloudflare.NewCloudflareProvider(flags.zoneName, flags.recordSuffix)
 			if err != nil {
-				panic(err)
+				logrus.Fatal("cannot create dns provider: %v", err)
 			}
 
 			service := controller.NewController(cli, cfProvider)
-			service.Run()
+			if err := service.Run(); err != nil {
+				logrus.Fatal("encountered error: %v", err)
+			}
 		},
 	}
 
@@ -50,6 +52,6 @@ func main() {
 	command := newCommand()
 
 	if err := command.Execute(); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }
