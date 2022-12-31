@@ -2,6 +2,7 @@ package cloudflare
 
 import (
 	"context"
+	"fmt"
 	cloudflare_sdk "github.com/cloudflare/cloudflare-go"
 	"github.com/kevinjqiu/external-dns-docker/dns"
 	"github.com/sirupsen/logrus"
@@ -9,9 +10,12 @@ import (
 	"strings"
 )
 
+var logger = logrus.WithField("dns_provider", "cloudflare")
+
 type CloudflareProvider struct {
 	api      *cloudflare_sdk.API
 	zoneName string
+	zoneID   string
 	suffix   string
 }
 
@@ -27,6 +31,17 @@ func newDnsRecord(record cloudflare_sdk.DNSRecord) *dns.Record {
 	}
 }
 
+func (c *CloudflareProvider) newCloudflareRecord(record *dns.Record) cloudflare_sdk.DNSRecord {
+	return cloudflare_sdk.DNSRecord{
+		Type:     record.Type,
+		Name:     record.Name,
+		Content:  record.Value,
+		ZoneID:   c.zoneID,
+		ZoneName: c.zoneName,
+		TTL:      int(record.TTL),
+	}
+}
+
 func (c *CloudflareProvider) fullSuffix() string {
 	var retval string
 	if c.suffix == "" {
@@ -39,7 +54,6 @@ func (c *CloudflareProvider) fullSuffix() string {
 }
 
 func (c *CloudflareProvider) Records(ctx context.Context) ([]*dns.Record, error) {
-
 	rr := cloudflare_sdk.DNSRecord{}
 
 	zoneID, err := c.api.ZoneIDByName(c.zoneName)
@@ -66,13 +80,44 @@ func (c *CloudflareProvider) Records(ctx context.Context) ([]*dns.Record, error)
 }
 
 func (c *CloudflareProvider) ApplyPlan(ctx context.Context, plan *dns.Plan) error {
-	logrus.Info("applying changes")
+	changes := plan.Changes()
+
+	if len(changes.Create) == 0 {
+		logger.Info("No new records to add")
+	} else {
+		for _, record := range changes.Create {
+			logger.Info("Adding record %v", record)
+			response, err := c.api.CreateDNSRecord(ctx, c.zoneID, c.newCloudflareRecord(record))
+			if err != nil {
+				logger.WithError(err).Errorf("cannot create dns record %v: %v", record, err)
+			}
+			logger.Infof("%v", response)
+		}
+	}
+
+	if len(changes.Delete) == 0 {
+		logger.Info("No records to delete")
+	} else {
+		for _, record := range changes.Delete {
+			logger.Info("Deleting record %v", record)
+			recordID, ok := record.ProviderMetadata["ID"].(string)
+			if !ok {
+				logger.Errorf("unable to get the cloudflare record ID for %v", record)
+				continue
+			}
+
+			err := c.api.DeleteDNSRecord(ctx, c.zoneID, recordID)
+			if err != nil {
+				logger.WithError(err).Errorf("cannot delete dns record %v: %v", record, err)
+			}
+		}
+	}
 	return nil
 }
 
 func (c *CloudflareProvider) NewRecord(ctx context.Context, baseName, recordType, value string, ttl int64) (*dns.Record, error) {
 	return &dns.Record{
-		Name:  baseName + "." + c.fullSuffix(),
+		Name:  fmt.Sprintf("%s%s", baseName, c.fullSuffix()),
 		Value: value,
 		Type:  recordType,
 		TTL:   ttl,
@@ -82,12 +127,20 @@ func (c *CloudflareProvider) NewRecord(ctx context.Context, baseName, recordType
 func NewCloudflareProvider(zoneName string, suffix string) (*CloudflareProvider, error) {
 	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
 	api, err := cloudflare_sdk.NewWithAPIToken(apiToken)
+
 	if err != nil {
 		return nil, err
 	}
+
+	zoneID, err := api.ZoneIDByName(zoneName)
+	if err != nil {
+		return nil, err
+	}
+
 	return &CloudflareProvider{
 		api:      api,
 		zoneName: zoneName,
+		zoneID:   zoneID,
 		suffix:   suffix,
 	}, nil
 }

@@ -10,6 +10,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var ttl int64 = 600 // TODO: get that from container label
+
+var logger = logrus.WithField("component", "controller")
+
+func sanitizeHostName(hostname string) string {
+	var ret = hostname
+
+	if ret[0] == '/' {
+		ret = ret[1:]
+	}
+
+	return ret
+}
+
 type Controller struct {
 	dockerClient  *client.Client
 	labelEnabled  string
@@ -46,14 +60,12 @@ func (s *Controller) getDesiredRecords() ([]*dns.Record, error) {
 
 	records := make([]*dns.Record, 0, len(containers))
 
-	var ttl int64 = 600 // TODO: get that from container label
-
 	for _, container := range containers {
 		for _, name := range container.Names {
 			for _, network := range container.NetworkSettings.Networks {
-				record, err := s.dnsProvider.NewRecord(context.Background(), name, "A", network.IPAddress, ttl)
+				record, err := s.dnsProvider.NewRecord(context.Background(), sanitizeHostName(name), "A", network.IPAddress, ttl)
 				if err != nil {
-					logrus.Warnf("unable to create record: %v", err)
+					logger.WithError(err).Warnf("unable to create record: %v", err)
 					continue
 				}
 				records = append(records, record)
@@ -87,21 +99,21 @@ func (s *Controller) Run() error {
 		return err
 	}
 
-	fmt.Printf("%v\n", plan.Desired)
-	fmt.Printf("%v\n", plan.Current)
-	// Upon start, gather a list of eligible containers
-	// messageChan, errChan := cli.Events(context.Background(), types.EventsOptions{})
+	if err := s.dnsProvider.ApplyPlan(context.Background(), plan); err != nil {
+		logger.WithError(err).Warnf("unable to apply changes: %v", err)
+	}
 
-	// for {
-	// 	select {
-	// 	case message := <-messageChan:
-	// 		fmt.Println(message)
+	messageChan, errChan := s.dockerClient.Events(context.Background(), types.EventsOptions{})
 
-	// 	case err := <-errChan:
-	// 		panic(err)
-	// 	}
-	// }
-	return nil
+	for {
+		select {
+		case message := <-messageChan:
+			fmt.Println(message)
+
+		case err := <-errChan:
+			return err
+		}
+	}
 }
 
 func NewController(dockerClient *client.Client, dnsProvider dns.Provider) *Controller {
