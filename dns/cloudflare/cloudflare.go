@@ -43,14 +43,10 @@ func (c *CloudflareProvider) newCloudflareRecord(record *dns.Record) cloudflare_
 }
 
 func (c *CloudflareProvider) fullSuffix() string {
-	var retval string
 	if c.suffix == "" {
-		retval = "." + c.zoneName
-	} else {
-		retval = "." + c.suffix + "." + c.zoneName
+		return fmt.Sprintf(".%s", c.zoneName)
 	}
-
-	return retval
+	return fmt.Sprintf(".%s.%s", c.suffix, c.zoneName)
 }
 
 func (c *CloudflareProvider) Records(ctx context.Context) ([]*dns.Record, error) {
