@@ -1,5 +1,7 @@
 package dns
 
+import "fmt"
+
 type Plan struct {
 	Current []*Record
 	Desired []*Record
@@ -9,28 +11,43 @@ func buildMap(list []*Record) map[string][]*Record {
 	m := make(map[string][]*Record)
 
 	for _, item := range list {
-		_, ok := m[item.Name]
+		key := fmt.Sprintf("%v:%v", item.Name, item.Type)
+		_, ok := m[key]
 		if !ok {
-			m[item.Name] = make([]*Record, 0)
+			m[key] = make([]*Record, 0)
 		}
-		m[item.Name] = append(m[item.Name], item)
+		m[key] = append(m[key], item)
 	}
 
 	return m
+}
+
+func recordSetByValue(records []*Record) map[string]*Record {
+	ret := make(map[string]*Record)
+
+	for _, record := range records {
+		ret[record.Value] = record
+	}
+
+	return ret
 }
 
 func generateCreateList(currentMap, desiredMap map[string][]*Record) []*Record {
 	records := make([]*Record, 0)
 
 	for desiredKey, desiredRecords := range desiredMap {
-		_, ok := currentMap[desiredKey]
+		currentRecords, ok := currentMap[desiredKey]
+
+		var valueSet = make(map[string]*Record)
 
 		if ok {
-			continue
+			valueSet = recordSetByValue(currentRecords)
 		}
 
 		for _, record := range desiredRecords {
-			records = append(records, record)
+			if _, ok := valueSet[record.Value]; !ok {
+				records = append(records, record)
+			}
 		}
 	}
 
@@ -41,41 +58,19 @@ func generateDeleteList(currentMap, desiredMap map[string][]*Record) []*Record {
 	records := make([]*Record, 0)
 
 	for currentKey, currentRecords := range currentMap {
-		_, ok := desiredMap[currentKey]
+		desiredRecords, ok := desiredMap[currentKey]
+
+		var valueSet = make(map[string]*Record)
 
 		if ok {
-			continue
+			valueSet = recordSetByValue(desiredRecords)
 		}
 
 		for _, record := range currentRecords {
-			records = append(records, record)
+			if _, ok := valueSet[record.Value]; !ok {
+				records = append(records, record)
+			}
 		}
-	}
-
-	return records
-}
-
-func generateUpdateList(currentMap, desiredMap map[string][]*Record) []*Record {
-	records := make([]*Record, 0)
-
-	commonKeys := make(map[string]struct{})
-
-	for currentKey := range currentMap {
-		if _, ok := desiredMap[currentKey]; ok {
-			commonKeys[currentKey] = struct{}{}
-		}
-	}
-
-	for desiredKey := range desiredMap {
-		if _, ok := currentMap[desiredKey]; ok {
-			commonKeys[desiredKey] = struct{}{}
-		}
-	}
-
-	for commonKey := range commonKeys {
-		currentRecords := currentMap[commonKey]
-		desiredRecords := desiredMap[commonKey]
-
 	}
 
 	return records
@@ -88,12 +83,10 @@ func (p *Plan) Changes() *Changes {
 	return &Changes{
 		Create: generateCreateList(currentMap, desiredMap),
 		Delete: generateDeleteList(currentMap, desiredMap),
-		Update: generateUpdateList(currentMap, desiredMap),
 	}
 }
 
 type Changes struct {
 	Create []*Record
-	Update []*Record
 	Delete []*Record
 }
