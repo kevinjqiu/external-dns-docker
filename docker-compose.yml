@@ -1,0 +1,21 @@
+version: "3"
+
+x-test-service: &test
+  image: python:3-alpine
+  command:
+    - python3
+    - -m
+    - http.server
+    - "8080"
+  labels:
+    - "external-dns-docker/enabled=true"
+
+services:
+  test_1:
+    <<: *test
+  
+  test_2:
+    <<: *test
+
+  test_3:
+    <<: *test
