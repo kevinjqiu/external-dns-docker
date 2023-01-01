@@ -18,6 +18,6 @@ WORKDIR /
 
 COPY --from=build /external-dns-docker /external-dns-docker
 
-USER nonroot:nonroot
+#USER nonroot:nonroot
 
 ENTRYPOINT ["/external-dns-docker"]
